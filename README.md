@@ -1,4 +1,4 @@
-#lab5 
+#lab6
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -238,5 +238,173 @@ Cp_T0 = a + b*T0 + c*T0*T0
 dCp_dT_T0 = b + 2*c*T0
 print(f"Cp({T0} K)      = {Cp_T0:.6f}")
 print(f"dCp/dT({T0} K)  = {dCp_dT_T0:.6f}")
+
+#LAB7 
+
+import pandas as pd
+import statsmodels.api as sm
+
+# Load data
+data = pd.read_csv("data.csv")
+
+# Dependent variable
+y = data['y']
+
+# Independent variables (all except 'y')
+X = data.drop(columns=['y'])
+
+selected_features = []                 # features chosen so far
+remaining_features = list(X.columns)   # features we can still try
+
+alpha = 0.05   # significance threshold for adding a feature
+
+while len(remaining_features) > 0:
+    p_values = {}  # store p-value of the "new" feature for each candidate
+    
+    for feature in remaining_features:
+        # Try a model that adds just this one new feature to those already selected
+        trial_features = selected_features + [feature]
+        X_trial = sm.add_constant(X[trial_features])  # add intercept
+        model = sm.OLS(y, X_trial).fit()             # fit OLS
+        
+        # p-value of the candidate feature *in this trial model*
+        p_values[feature] = model.pvalues[feature]
+        
+    # Pick the candidate with the lowest p-value this round
+    best_feature = min(p_values, key=p_values.get)
+    
+    # If it is statistically significant, accept it and continue; else stop
+    if p_values[best_feature] < alpha:
+        selected_features.append(best_feature)
+        remaining_features.remove(best_feature)
+        print(f"Added: {best_feature} (p-value = {p_values[best_feature]:.4f})")
+    else:
+        print("No more statistically significant features to add.")
+        break
+
+print("\nFinal selected features:", selected_features)
+
+# Fit and show the final model with only the selected features
+X_final = sm.add_constant(X[selected_features])
+final_model = sm.OLS(y, X_final).fit()
+print("\nFinal Model Summary:")
+print(final_model.summary())
+
+
+#LAB8
+
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+import numpy as np
+
+# Load dataset
+data = pd.read_csv("data2.csv")
+
+# y = first column, X = remaining columns
+y = data.iloc[:, 0]        # dependent variable
+X = data.iloc[:, 1:]       # independent variables x1, x2, x3
+
+# Perform one random train-test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Fit Linear Regression Model
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+# Print the learned coefficients
+print("Intercept (b0) =", model.intercept_)
+print("Coefficients (b1, b2, b3) =", model.coef_)
+
+# Predict on test set
+y_pred = model.predict(X_test)
+
+# Calculate errors
+MSE = np.mean((y_test - y_pred)**2)
+print("Test MSE =", MSE)
+
+
+#LOGISTIC REGRESSION
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LogisticRegression
+
+data = pd.read_csv("oring.csv")
+
+# Temperature is X, Failure (0/1) is y
+X = data[['Temperature']]
+y = data['Failure']
+
+# Fit logistic regression model
+model = LogisticRegression(solver='lbfgs')
+model.fit(X, y)
+
+# Predicted probability of failure for each temperature
+prob = model.predict_proba(X)[:, 1]
+
+print("Intercept =", model.intercept_)
+print("Coefficient =", model.coef_)
+
+# Plot data + logistic curve
+plt.scatter(X, y, label="Actual Failure Data")
+plt.plot(X, prob, label="Predicted Failure Probability", color='red')
+plt.xlabel("Temperature (°F)")
+plt.ylabel("Probability of Failure")
+plt.legend()
+plt.show()
+
+#LAB9
+
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression, Lasso, LassoCV, Ridge, RidgeCV
+from sklearn.metrics import mean_squared_error
+
+# Load data
+data = pd.read_csv("data3.csv")
+
+# y is first column, X is next 5 columns
+y = data.iloc[:, 0]
+X = data.iloc[:, 1:]
+
+# Split data into train (80%) and test (20%)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+### 1) Least Squares (OLS)
+ols = LinearRegression().fit(X_train, y_train)
+y_pred_ols = ols.predict(X_test)
+print("\nOLS Coefficients:", ols.coef_)
+print("OLS Test MSE:", mean_squared_error(y_test, y_pred_ols))
+
+### 2) Lasso (manual alpha)
+lasso = Lasso(alpha=0.1).fit(X_train, y_train)
+y_pred_lasso = lasso.predict(X_test)
+print("\nLasso Coefficients:", lasso.coef_)
+print("Lasso Test MSE:", mean_squared_error(y_test, y_pred_lasso))
+
+### 3) LassoCV (auto alpha search)
+lasso_cv = LassoCV(alphas=[0.001, 0.01, 0.1, 1, 10, 100]).fit(X_train, y_train)
+y_pred_lasso_cv = lasso_cv.predict(X_test)
+print("\nLassoCV Best Alpha:", lasso_cv.alpha_)
+print("LassoCV Coefficients:", lasso_cv.coef_)
+print("LassoCV Test MSE:", mean_squared_error(y_test, y_pred_lasso_cv))
+
+### 4) Ridge (manual alpha)
+ridge = Ridge(alpha=1.0).fit(X_train, y_train)
+y_pred_ridge = ridge.predict(X_test)
+print("\nRidge Coefficients:", ridge.coef_)
+print("Ridge Test MSE:", mean_squared_error(y_test, y_pred_ridge))
+
+### 5) RidgeCV (auto alpha search)
+ridge_cv = RidgeCV(alphas=[0.001, 0.01, 0.1, 1, 10, 100]).fit(X_train, y_train)
+y_pred_ridge_cv = ridge_cv.predict(X_test)
+print("\nRidgeCV Best Alpha:", ridge_cv.alpha_)
+print("RidgeCV Coefficients:", ridge_cv.coef_)
+print("RidgeCV Test MSE:", mean_squared_error(y_test, y_pred_ridge_cv))
+
+
 
 
